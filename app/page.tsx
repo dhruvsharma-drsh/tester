@@ -1,69 +1,171 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
-  return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
-  );
+import React, { useState, useEffect } from 'react';
+
+export default function WidgetTester() {
+  const [scriptInput, setScriptInput] = useState('');
+  const [isActive, setIsActive] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    // Check if there's a saved script on mount
+    const saved = localStorage.getItem('frosty_test_script');
+    if (saved) {
+      setScriptInput(saved);
+      setIsActive(true);
+      injectScript(saved);
+    }
+  }, []);
+
+  const injectScript = (htmlStr: string) => {
+    try {
+      const matchSrc = htmlStr.match(/src=["'](.*?)["']/);
+      const dataRegex = /data-([a-zA-Z0-9-]+)=["'](.*?)["']/g;
+
+      const dataset: Record<string, string> = {};
+      let match;
+      while ((match = dataRegex.exec(htmlStr)) !== null) {
+        dataset[match[1]] = match[2];
+      }
+
+      if (!matchSrc) {
+        setError('Could not find a valid src attribute in your script.');
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = matchSrc[1];
+      script.async = true;
+
+      Object.keys(dataset).forEach((key) => {
+        // Convert kebab-case (data-frosty-key) to camelCase (frostyKey) for the dataset API
+        const camelKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        script.dataset[camelKey] = dataset[key];
+      });
+
+      document.body.appendChild(script);
+      setError('');
+    } catch (e) {
+      console.error('Failed to parse script', e);
+      setError('Invalid script format. Please check your syntax.');
+    }
+  };
+
+  const handleLoad = () => {
+    if (!scriptInput.trim()) return;
+    localStorage.setItem('frosty_test_script', scriptInput);
+    // Reload to ensure a clean slate and perfectly clean DOM injection
+    window.location.reload();
+  };
+
+  const handleClear = () => {
+    localStorage.removeItem('frosty_test_script');
+    window.location.reload();
+  };
+
+  return (
+    <div className="flex flex-col md:flex-row min-h-screen bg-[#0A0A0A] text-white font-sans selection:bg-fuchsia-500 selection:text-white">
+
+      {/* LEFT PANEL: Controls (Glassmorphism) */}
+      <div className="w-full md:w-1/3 lg:w-[400px] p-8 border-r border-white/10 bg-white/5 backdrop-blur-2xl z-10 flex flex-col shadow-2xl relative">
+
+        {/* Glow effect */}
+        <div className="absolute top-0 left-0 w-full h-32 bg-fuchsia-500/20 blur-[100px] -z-10 pointer-events-none" />
+
+        <div className="mb-8">
+          <h1 className="text-3xl font-extrabold bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent tracking-tight">
+            Frosty Tester
+          </h1>
+          <p className="text-sm text-gray-400 mt-3 leading-relaxed">
+            Paste your HTML embed snippet below. We will dynamically mount it onto this mock website to preview its behavior.
+          </p>
+        </div>
+
+        <div className="flex-1 flex flex-col gap-4">
+          <label className="text-xs font-semibold text-gray-300 uppercase tracking-widest">
+            Widget Script Tag
+          </label>
+          <textarea
+            value={scriptInput}
+            onChange={(e) => setScriptInput(e.target.value)}
+            placeholder={'<script src="..." data-frosty-key="..."></script>'}
+            className="w-full h-64 bg-black/40 border border-white/10 rounded-xl p-4 text-sm font-mono text-cyan-300 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-500 transition-all resize-none shadow-inner"
+          />
+
+          {error && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3 mt-4">
+            <button
+              onClick={handleLoad}
+              className="flex-1 py-3 px-4 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-fuchsia-900/50 hover:shadow-fuchsia-900/80 active:scale-[0.98]"
+            >
+              {isActive ? 'Reload Widget' : 'Load Widget'}
+            </button>
+
+            {isActive && (
+              <button
+                onClick={handleClear}
+                className="py-3 px-6 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl font-medium transition-all active:scale-[0.98]"
+              >
+                Remove
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-8 text-xs text-gray-500 text-center">
+          Powered by Next.js & TailwindCSS
+        </div>
+      </div>
+
+      {/* RIGHT PANEL: Mock Website Background */}
+      <div className="flex-1 relative overflow-y-auto bg-gradient-to-br from-gray-900 via-[#111] to-black">
+        {/* Subtle grid pattern for premium feel */}
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay"></div>
+
+        <div className="max-w-4xl mx-auto p-12 relative z-0">
+          <nav className="flex items-center justify-between py-6 border-b border-white/10 mb-16">
+            <div className="text-xl font-bold tracking-wider">LUMIÈRE</div>
+            <div className="flex gap-8 text-sm text-gray-400">
+              <span className="hover:text-white cursor-pointer transition-colors">Shop</span>
+              <span className="hover:text-white cursor-pointer transition-colors">Collections</span>
+              <span className="hover:text-white cursor-pointer transition-colors">About</span>
+            </div>
+          </nav>
+
+          <header className="mb-24">
+            <h2 className="text-5xl md:text-7xl font-bold leading-tight mb-6">
+              Elevate your <br/>
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-fuchsia-300">
+                everyday style.
+              </span>
+            </h2>
+            <p className="text-xl text-gray-400 max-w-xl leading-relaxed">
+              Discover our latest collection of premium minimalist accessories designed for the modern professional.
+            </p>
+          </header>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[1, 2, 3].map((item) => (
+              <div key={item} className="group cursor-pointer">
+                <div className="aspect-[4/5] bg-white/5 rounded-2xl mb-4 overflow-hidden border border-white/5 group-hover:border-white/20 transition-all relative">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <h3 className="text-lg font-medium">Premium Item 0{item}</h3>
+                <p className="text-gray-500">$129.00</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Extra padding at bottom so scroll behavior can be tested against the widget */}
+          <div className="h-64" />
+        </div>
+      </div>
+
+    </div>
+  );
 }
