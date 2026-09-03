@@ -30,7 +30,7 @@
 
 html, body {
   height: 100%;
-  overflow: hidden;
+  /* Do NOT set overflow:hidden here — it breaks position:fixed widgets on mobile */
 }
 
 body {
