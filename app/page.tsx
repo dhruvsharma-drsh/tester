@@ -1,171 +1,619 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 
 export default function WidgetTester() {
-  const [scriptInput, setScriptInput] = useState('');
-  const [isActive, setIsActive] = useState(false);
-  const [error, setError] = useState('');
+  const [scriptInput, setScriptInput] = useState('');
+  const [isActive, setIsActive] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    // Check if there's a saved script on mount
-    const saved = localStorage.getItem('frosty_test_script');
-    if (saved) {
-      setScriptInput(saved);
-      setIsActive(true);
-      injectScript(saved);
-    }
-  }, []);
+  useEffect(() => {
+    const saved = localStorage.getItem('frosty_test_script');
+    if (saved) {
+      setScriptInput(saved);
+      setIsActive(true);
+      injectScript(saved);
+    }
+  }, []);
 
-  const injectScript = (htmlStr: string) => {
-    try {
-      const matchSrc = htmlStr.match(/src=["'](.*?)["']/);
-      const dataRegex = /data-([a-zA-Z0-9-]+)=["'](.*?)["']/g;
+  const injectScript = (htmlStr: string) => {
+    try {
+      const matchSrc = htmlStr.match(/src=["'](.*?)['"]/);
+      const dataRegex = /data-([a-zA-Z0-9-]+)=["'](.*?)['"]/g;
+      const dataset: Record<string, string> = {};
+      let match;
+      while ((match = dataRegex.exec(htmlStr)) !== null) {
+        dataset[match[1]] = match[2];
+      }
+      if (!matchSrc) {
+        setError('Could not find a valid src attribute in the script tag.');
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = matchSrc[1];
+      script.async = true;
+      Object.keys(dataset).forEach((key) => {
+        const camelKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
+        script.dataset[camelKey] = dataset[key];
+      });
+      document.body.appendChild(script);
+      setError('');
+    } catch (e) {
+      console.error('Failed to parse script', e);
+      setError('Invalid script format. Please check your syntax.');
+    }
+  };
 
-      const dataset: Record<string, string> = {};
-      let match;
-      while ((match = dataRegex.exec(htmlStr)) !== null) {
-        dataset[match[1]] = match[2];
-      }
+  const handleLoad = () => {
+    if (!scriptInput.trim()) return;
+    localStorage.setItem('frosty_test_script', scriptInput);
+    window.location.reload();
+  };
 
-      if (!matchSrc) {
-        setError('Could not find a valid src attribute in your script.');
-        return;
-      }
+  const handleClear = () => {
+    localStorage.removeItem('frosty_test_script');
+    window.location.reload();
+  };
 
-      const script = document.createElement('script');
-      script.src = matchSrc[1];
-      script.async = true;
+  const handleCopy = () => {
+    if (!scriptInput) return;
+    navigator.clipboard.writeText(scriptInput);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-      Object.keys(dataset).forEach((key) => {
-        // Convert kebab-case (data-frosty-key) to camelCase (frostyKey) for the dataset API
-        const camelKey = key.replace(/-([a-z])/g, (g) => g[1].toUpperCase());
-        script.dataset[camelKey] = dataset[key];
-      });
+  return (
+    <div
+      style={{
+        display: 'flex',
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden',
+        background: '#080808',
+        color: '#f0f0f0',
+        fontFamily: "'Inter', 'Geist Sans', system-ui, sans-serif",
+      }}
+    >
 
-      document.body.appendChild(script);
-      setError('');
-    } catch (e) {
-      console.error('Failed to parse script', e);
-      setError('Invalid script format. Please check your syntax.');
-    }
-  };
+      {/* LEFT PANEL */}
+      <aside
+        style={{
+          width: 380,
+          minWidth: 380,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          background: '#0c0c0c',
+          borderRight: '1px solid rgba(255,255,255,0.06)',
+          boxShadow: '4px 0 40px rgba(0,0,0,0.7)',
+          overflowY: 'auto',
+        }}
+      >
+        {/* Brand header */}
+        <div
+          style={{
+            padding: '28px 28px 22px',
+            borderBottom: '1px solid rgba(255,255,255,0.05)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36, height: 36,
+                background: 'linear-gradient(135deg, #c9a84c 0%, #7a5c1e 100%)',
+                borderRadius: 9,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, fontWeight: 800, color: '#080808',
+                boxShadow: '0 4px 20px rgba(201,168,76,0.3)',
+                flexShrink: 0,
+              }}
+            >
+              F
+            </div>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 700, letterSpacing: '0.01em', color: '#f0f0f0' }}>
+                Frosty Tester
+              </div>
+              <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.28)', letterSpacing: '0.05em', marginTop: 2 }}>
+                Widget Sandbox
+              </div>
+            </div>
+          </div>
+        </div>
 
-  const handleLoad = () => {
-    if (!scriptInput.trim()) return;
-    localStorage.setItem('frosty_test_script', scriptInput);
-    // Reload to ensure a clean slate and perfectly clean DOM injection
-    window.location.reload();
-  };
+        {/* Status bar */}
+        <div
+          style={{
+            padding: '10px 28px',
+            borderBottom: '1px solid rgba(255,255,255,0.04)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'rgba(255,255,255,0.01)',
+          }}
+        >
+          <span
+            style={{
+              display: 'inline-block',
+              width: 6, height: 6,
+              borderRadius: '50%',
+              background: isActive ? '#4ade80' : 'rgba(255,255,255,0.15)',
+              boxShadow: isActive ? '0 0 8px #4ade80' : 'none',
+            }}
+          />
+          <span style={{ fontSize: 11.5, color: 'rgba(255,255,255,0.35)', fontWeight: 500 }}>
+            {isActive ? 'Widget active' : 'No widget loaded'}
+          </span>
+          {isActive && (
+            <span
+              style={{
+                marginLeft: 'auto', fontSize: 10, fontWeight: 700,
+                letterSpacing: '0.1em', color: '#4ade80',
+                background: 'rgba(74,222,128,0.07)',
+                padding: '2px 8px', borderRadius: 4,
+                border: '1px solid rgba(74,222,128,0.14)',
+                textTransform: 'uppercase' as const,
+              }}
+            >
+              LIVE
+            </span>
+          )}
+        </div>
 
-  const handleClear = () => {
-    localStorage.removeItem('frosty_test_script');
-    window.location.reload();
-  };
+        {/* Controls */}
+        <div style={{ padding: '24px 28px', flex: 1 }}>
+          {/* Description */}
+          <p style={{ fontSize: 12.5, color: 'rgba(255,255,255,0.33)', lineHeight: 1.75, marginBottom: 20 }}>
+            Paste your HTML widget{' '}
+            <code style={{ fontFamily: 'JetBrains Mono, monospace', color: 'rgba(201,168,76,0.65)', fontSize: 11 }}>
+              &lt;script&gt;
+            </code>{' '}
+            tag below to inject and preview it on the mock page.
+          </p>
 
-  return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#0A0A0A] text-white font-sans selection:bg-fuchsia-500 selection:text-white">
+          {/* Section label */}
+          <div
+            style={{
+              fontSize: 10, fontWeight: 700, letterSpacing: '0.14em',
+              color: 'rgba(255,255,255,0.22)', textTransform: 'uppercase' as const,
+              marginBottom: 8,
+            }}
+          >
+            Embed Script
+          </div>
 
-      {/* LEFT PANEL: Controls (Glassmorphism) */}
-      <div className="w-full md:w-1/3 lg:w-[400px] p-8 border-r border-white/10 bg-white/5 backdrop-blur-2xl z-10 flex flex-col shadow-2xl relative">
+          {/* Code editor box */}
+          <div
+            style={{
+              background: '#111',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: 12,
+              overflow: 'hidden',
+              marginBottom: 14,
+            }}
+          >
+            {/* Editor titlebar */}
+            <div
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '8px 14px',
+                background: 'rgba(255,255,255,0.025)',
+                borderBottom: '1px solid rgba(255,255,255,0.05)',
+              }}
+            >
+              <div style={{ display: 'flex', gap: 6 }}>
+                {['#ff5f57','#febc2e','#28c840'].map((c, i) => (
+                  <span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: c, opacity: 0.65 }} />
+                ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.18)', fontFamily: 'JetBrains Mono, monospace' }}>
+                  widget.html
+                </span>
+                <button
+                  onClick={handleCopy}
+                  style={{
+                    fontSize: 10, fontWeight: 700,
+                    color: copied ? '#c9a84c' : 'rgba(255,255,255,0.25)',
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    letterSpacing: '0.08em', transition: 'color 0.2s',
+                    fontFamily: 'inherit',
+                    padding: 0,
+                  }}
+                >
+                  {copied ? '✓ COPIED' : 'COPY'}
+                </button>
+              </div>
+            </div>
+            {/* Textarea */}
+            <textarea
+              id="script-input"
+              value={scriptInput}
+              onChange={(e) => setScriptInput(e.target.value)}
+              placeholder={`<script\n  src="https://cdn.example.com/widget.js"\n  data-key="your-api-key"\n></script>`}
+              spellCheck={false}
+              style={{
+                width: '100%', height: 190,
+                background: 'transparent', border: 'none', resize: 'none',
+                padding: '14px 16px',
+                fontSize: 12.5,
+                fontFamily: 'JetBrains Mono, monospace',
+                color: '#d4a853', lineHeight: 1.7,
+                outline: 'none', caretColor: '#c9a84c',
+              }}
+            />
+          </div>
 
-        {/* Glow effect */}
-        <div className="absolute top-0 left-0 w-full h-32 bg-fuchsia-500/20 blur-[100px] -z-10 pointer-events-none" />
+          {/* Error */}
+          {error && (
+            <div
+              style={{
+                padding: '10px 14px', borderRadius: 8, marginBottom: 12,
+                background: 'rgba(238,85,85,0.06)',
+                border: '1px solid rgba(238,85,85,0.14)',
+                color: '#f87171', fontSize: 12,
+                display: 'flex', gap: 8, alignItems: 'flex-start',
+              }}
+            >
+              <span style={{ flexShrink: 0 }}>⚠</span>
+              <span>{error}</span>
+            </div>
+          )}
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-extrabold bg-gradient-to-r from-fuchsia-400 to-cyan-400 bg-clip-text text-transparent tracking-tight">
-            Frosty Tester
-          </h1>
-          <p className="text-sm text-gray-400 mt-3 leading-relaxed">
-            Paste your HTML embed snippet below. We will dynamically mount it onto this mock website to preview its behavior.
-          </p>
-        </div>
+          {/* Buttons */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 24 }}>
+            <button
+              id="load-widget-btn"
+              onClick={handleLoad}
+              disabled={!scriptInput.trim()}
+              style={{
+                flex: 1, padding: '12px 0', borderRadius: 10, border: 'none',
+                background: scriptInput.trim()
+                  ? 'linear-gradient(135deg, #c9a84c 0%, #9a7a30 100%)'
+                  : 'rgba(255,255,255,0.05)',
+                color: scriptInput.trim() ? '#080808' : 'rgba(255,255,255,0.18)',
+                fontWeight: 700, fontSize: 13, cursor: scriptInput.trim() ? 'pointer' : 'not-allowed',
+                letterSpacing: '0.03em',
+                boxShadow: scriptInput.trim() ? '0 4px 20px rgba(201,168,76,0.22)' : 'none',
+                transition: 'all 0.2s',
+                fontFamily: 'inherit',
+              }}
+            >
+              {isActive ? '↻  Reload Widget' : '▶  Load Widget'}
+            </button>
 
-        <div className="flex-1 flex flex-col gap-4">
-          <label className="text-xs font-semibold text-gray-300 uppercase tracking-widest">
-            Widget Script Tag
-          </label>
-          <textarea
-            value={scriptInput}
-            onChange={(e) => setScriptInput(e.target.value)}
-            placeholder={'<script src="..." data-frosty-key="..."></script>'}
-            className="w-full h-64 bg-black/40 border border-white/10 rounded-xl p-4 text-sm font-mono text-cyan-300 focus:outline-none focus:ring-2 focus:ring-fuchsia-500/50 focus:border-fuchsia-500 transition-all resize-none shadow-inner"
-          />
+            {isActive && (
+              <button
+                id="remove-widget-btn"
+                onClick={handleClear}
+                style={{
+                  padding: '12px 16px', borderRadius: 10,
+                  background: 'rgba(255,255,255,0.03)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  color: 'rgba(255,255,255,0.4)',
+                  fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                  transition: 'all 0.2s', fontFamily: 'inherit',
+                  whiteSpace: 'nowrap' as const,
+                }}
+              >
+                ✕  Remove
+              </button>
+            )}
+          </div>
 
-          {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-              {error}
-            </div>
-          )}
+          {/* How it works */}
+          <div
+            style={{
+              padding: '14px 16px',
+              background: 'rgba(201,168,76,0.03)',
+              border: '1px solid rgba(201,168,76,0.09)',
+              borderRadius: 10,
+            }}
+          >
+            <div
+              style={{
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
+                color: 'rgba(201,168,76,0.45)', textTransform: 'uppercase' as const, marginBottom: 8,
+              }}
+            >
+              How it works
+            </div>
+            {[
+              'Paste your <script> embed tag above',
+              'Click Load Widget to inject it',
+              'Interact with the preview on the right',
+              'Script persists across page refreshes',
+            ].map((step, i) => (
+              <div key={i} style={{ fontSize: 12, color: 'rgba(255,255,255,0.28)', lineHeight: 1.9, display: 'flex', gap: 8, alignItems: 'baseline' }}>
+                <span style={{ color: 'rgba(201,168,76,0.35)', fontWeight: 700, fontSize: 10, flexShrink: 0 }}>{i + 1}.</span>
+                <span>{step}</span>
+              </div>
+            ))}
+          </div>
+        </div>
 
-          <div className="flex gap-3 mt-4">
-            <button
-              onClick={handleLoad}
-              className="flex-1 py-3 px-4 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl font-medium transition-all shadow-lg shadow-fuchsia-900/50 hover:shadow-fuchsia-900/80 active:scale-[0.98]"
-            >
-              {isActive ? 'Reload Widget' : 'Load Widget'}
-            </button>
+        {/* Footer */}
+        <div
+          style={{
+            padding: '14px 28px',
+            borderTop: '1px solid rgba(255,255,255,0.04)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          }}
+        >
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.15)' }}>Frosty Agent © 2025</span>
+          <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.12)' }}>v0.1.0</span>
+        </div>
+      </aside>
 
-            {isActive && (
-              <button
-                onClick={handleClear}
-                className="py-3 px-6 bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 rounded-xl font-medium transition-all active:scale-[0.98]"
-              >
-                Remove
-              </button>
-            )}
-          </div>
-        </div>
+      {/* RIGHT PANEL: Mock Website */}
+      <main
+        style={{
+          flex: 1, overflowY: 'auto', position: 'relative',
+          background: '#0a0a0a',
+        }}
+      >
+        {/* Subtle gold ambient glow */}
+        <div
+          style={{
+            position: 'fixed', top: 0, right: 0, width: '50%', height: '40vh',
+            background: 'radial-gradient(ellipse at 80% 0%, rgba(201,168,76,0.035) 0%, transparent 65%)',
+            pointerEvents: 'none',
+          }}
+        />
 
-        <div className="mt-8 text-xs text-gray-500 text-center">
-          Powered by Next.js & TailwindCSS
-        </div>
-      </div>
+        <div style={{ maxWidth: 960, margin: '0 auto', padding: '0 48px 120px' }}>
 
-      {/* RIGHT PANEL: Mock Website Background */}
-      <div className="flex-1 relative overflow-y-auto bg-gradient-to-br from-gray-900 via-[#111] to-black">
-        {/* Subtle grid pattern for premium feel */}
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 pointer-events-none mix-blend-overlay"></div>
+          {/* Nav */}
+          <nav
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '28px 0',
+              borderBottom: '1px solid rgba(255,255,255,0.05)',
+              marginBottom: 68,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div
+                style={{
+                  width: 26, height: 26,
+                  background: 'linear-gradient(135deg, #c9a84c, #7a5c1e)',
+                  borderRadius: 6,
+                }}
+              />
+              <span style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.14em', color: '#f0f0f0' }}>
+                LUMIÈRE
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 32 }}>
+              {['Shop', 'Collections', 'Editorial', 'About'].map((link) => (
+                <span
+                  key={link}
+                  style={{
+                    fontSize: 13, color: 'rgba(255,255,255,0.32)',
+                    cursor: 'pointer', letterSpacing: '0.04em',
+                    fontWeight: 500, transition: 'color 0.2s',
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLSpanElement).style.color = '#f0f0f0'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLSpanElement).style.color = 'rgba(255,255,255,0.32)'; }}
+                >
+                  {link}
+                </span>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                style={{
+                  padding: '8px 18px', background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  borderRadius: 8, color: 'rgba(255,255,255,0.45)',
+                  fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                  letterSpacing: '0.05em', fontFamily: 'inherit',
+                }}
+              >
+                Sign in
+              </button>
+              <button
+                style={{
+                  padding: '8px 18px',
+                  background: 'linear-gradient(135deg, #c9a84c, #9a7a30)',
+                  border: 'none', borderRadius: 8,
+                  color: '#080808', fontSize: 12, fontWeight: 700,
+                  cursor: 'pointer', letterSpacing: '0.05em',
+                  boxShadow: '0 4px 16px rgba(201,168,76,0.18)',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Shop Now
+              </button>
+            </div>
+          </nav>
 
-        <div className="max-w-4xl mx-auto p-12 relative z-0">
-          <nav className="flex items-center justify-between py-6 border-b border-white/10 mb-16">
-            <div className="text-xl font-bold tracking-wider">LUMIÈRE</div>
-            <div className="flex gap-8 text-sm text-gray-400">
-              <span className="hover:text-white cursor-pointer transition-colors">Shop</span>
-              <span className="hover:text-white cursor-pointer transition-colors">Collections</span>
-              <span className="hover:text-white cursor-pointer transition-colors">About</span>
-            </div>
-          </nav>
+          {/* Hero */}
+          <header style={{ marginBottom: 80 }}>
+            <div
+              style={{
+                fontSize: 11, fontWeight: 700, letterSpacing: '0.18em',
+                color: '#c9a84c', textTransform: 'uppercase' as const,
+                marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10,
+              }}
+            >
+              <span style={{ display: 'inline-block', width: 28, height: 1, background: '#c9a84c', opacity: 0.6 }} />
+              New Collection 2025
+            </div>
+            <h1
+              style={{
+                fontSize: 'clamp(38px, 5.5vw, 68px)',
+                fontWeight: 800, lineHeight: 1.07,
+                letterSpacing: '-0.025em', color: '#f0f0f0', marginBottom: 22,
+              }}
+            >
+              Elevate your<br />
+              <span
+                style={{
+                  background: 'linear-gradient(135deg, #e6c76a 0%, #c9a84c 50%, #9e7c2c 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}
+              >
+                everyday style.
+              </span>
+            </h1>
+            <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.36)', maxWidth: 500, lineHeight: 1.82, marginBottom: 34 }}>
+              Discover our latest collection of premium minimalist accessories designed for the modern professional.
+            </p>
+            <div style={{ display: 'flex', gap: 14 }}>
+              <button
+                style={{
+                  padding: '13px 30px',
+                  background: 'linear-gradient(135deg, #c9a84c, #9a7a30)',
+                  border: 'none', borderRadius: 10,
+                  color: '#080808', fontWeight: 700, fontSize: 14,
+                  cursor: 'pointer', letterSpacing: '0.04em',
+                  boxShadow: '0 6px 24px rgba(201,168,76,0.22)',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Explore Collection →
+              </button>
+              <button
+                style={{
+                  padding: '13px 30px', background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.09)',
+                  borderRadius: 10, color: 'rgba(255,255,255,0.45)',
+                  fontWeight: 600, fontSize: 14,
+                  cursor: 'pointer', letterSpacing: '0.04em',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Watch Film
+              </button>
+            </div>
+          </header>
 
-          <header className="mb-24">
-            <h2 className="text-5xl md:text-7xl font-bold leading-tight mb-6">
-              Elevate your <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-fuchsia-300">
-                everyday style.
-              </span>
-            </h2>
-            <p className="text-xl text-gray-400 max-w-xl leading-relaxed">
-              Discover our latest collection of premium minimalist accessories designed for the modern professional.
-            </p>
-          </header>
+          {/* Products header */}
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              marginBottom: 26,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', color: 'rgba(255,255,255,0.2)', textTransform: 'uppercase' as const, marginBottom: 4 }}>
+                Featured Products
+              </div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: '#f0f0f0' }}>New Arrivals</div>
+            </div>
+            <span style={{ fontSize: 12, color: '#c9a84c', cursor: 'pointer', fontWeight: 600 }}>View all →</span>
+          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="group cursor-pointer">
-                <div className="aspect-[4/5] bg-white/5 rounded-2xl mb-4 overflow-hidden border border-white/5 group-hover:border-white/20 transition-all relative">
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-                <h3 className="text-lg font-medium">Premium Item 0{item}</h3>
-                <p className="text-gray-500">$129.00</p>
-              </div>
-            ))}
-          </div>
+          {/* Product cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 18, marginBottom: 56 }}>
+            {[
+              { name: 'Onyx Minimalist Watch', price: '$299.00', tag: 'New' },
+              { name: 'Carbon Leather Wallet', price: '$89.00', tag: 'Best Seller' },
+              { name: 'Obsidian Sunglasses', price: '$189.00', tag: 'Limited' },
+            ].map((item, i) => (
+              <div
+                key={i}
+                className="card-hover"
+                style={{
+                  background: '#111',
+                  border: '1px solid rgba(255,255,255,0.05)',
+                  borderRadius: 14, overflow: 'hidden', cursor: 'pointer',
+                }}
+              >
+                <div
+                  style={{
+                    aspectRatio: '4/5',
+                    background: 'linear-gradient(145deg, #141414 0%, #0f0f0f 100%)',
+                    position: 'relative', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 72, height: 72,
+                      background: 'rgba(201,168,76,0.05)',
+                      borderRadius: '50%',
+                      border: '1px solid rgba(201,168,76,0.1)',
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute', top: 12, left: 12,
+                      padding: '3px 9px',
+                      background: 'rgba(201,168,76,0.1)',
+                      border: '1px solid rgba(201,168,76,0.18)',
+                      borderRadius: 4, fontSize: 10, fontWeight: 700,
+                      color: '#c9a84c', letterSpacing: '0.09em',
+                      textTransform: 'uppercase' as const,
+                    }}
+                  >
+                    {item.tag}
+                  </div>
+                </div>
+                <div style={{ padding: '14px 16px 18px' }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 600, color: '#f0f0f0', marginBottom: 10 }}>
+                    {item.name}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: '#c9a84c' }}>{item.price}</span>
+                    <button
+                      style={{
+                        padding: '5px 12px',
+                        background: 'rgba(201,168,76,0.07)',
+                        border: '1px solid rgba(201,168,76,0.14)',
+                        borderRadius: 6, color: '#c9a84c',
+                        fontSize: 11, fontWeight: 600, cursor: 'pointer',
+                        letterSpacing: '0.04em', fontFamily: 'inherit',
+                      }}
+                    >
+                      Add to Cart
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
 
-          {/* Extra padding at bottom so scroll behavior can be tested against the widget */}
-          <div className="h-64" />
-        </div>
-      </div>
+          {/* Promo strip */}
+          <div
+            style={{
+              padding: '32px 36px',
+              background: 'rgba(201,168,76,0.03)',
+              border: '1px solid rgba(201,168,76,0.08)',
+              borderRadius: 14,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              gap: 24, marginBottom: 80,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: '#f0f0f0', marginBottom: 5 }}>
+                Free shipping on orders over{' '}
+                <span style={{ color: '#c9a84c' }}>$150</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.3)' }}>
+                Worldwide delivery · 30-day returns · Premium packaging
+              </div>
+            </div>
+            <button
+              style={{
+                padding: '11px 26px', flexShrink: 0,
+                background: 'linear-gradient(135deg, #c9a84c, #9a7a30)',
+                border: 'none', borderRadius: 10,
+                color: '#080808', fontWeight: 700, fontSize: 13,
+                cursor: 'pointer', letterSpacing: '0.04em', fontFamily: 'inherit',
+              }}
+            >
+              Learn More
+            </button>
+          </div>
 
-    </div>
-  );
+          <div style={{ height: 200 }} />
+        </div>
+      </main>
+    </div>
+  );
 }
